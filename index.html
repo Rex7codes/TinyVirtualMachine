@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TinyVM & Compiler Visualizer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo-badge">VM</div>
+      <div>
+        <h1>TinyVM & Compiler Visualizer</h1>
+        <p class="subtitle">Multi-Language Frontend (Python / C / Java) → Bytecode → Stack Virtual Machine</p>
+      </div>
+    </div>
+
+    <div class="controls">
+      <select id="langSelect" title="Select Source Language">
+        <option value="python">Python</option>
+        <option value="c">C</option>
+        <option value="java">Java</option>
+      </select>
+
+      <select id="presetSelect" title="Load Example Program">
+        <option value="factorial">Preset: Factorial Loop</option>
+        <option value="fibonacci">Preset: Fibonacci Series</option>
+        <option value="conditionals">Preset: Grade Evaluator (If/Else)</option>
+        <option value="error_demo">Preset: Syntax / Runtime Error Demo</option>
+      </select>
+
+      <button id="btnRun" class="btn primary">▶ Compile & Run</button>
+      <button id="btnStep" class="btn secondary">⏭ Step</button>
+      <button id="btnAuto" class="btn secondary">⏩ Auto-Step</button>
+      <button id="btnReset" class="btn danger">↺ Reset</button>
+      <button id="btnDocs" class="btn ghost">📘 ISA Docs</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- Left Panel: Source Code Editor & Console -->
+    <section class="panel editor-panel">
+      <div class="panel-header">
+        <span>1. High-Level Source Code</span>
+        <span id="statusBadge" class="badge idle">READY</span>
+      </div>
+
+      <div class="editor-wrapper">
+        <div id="lineNumbers" class="line-numbers">1</div>
+        <textarea id="sourceEditor" spellcheck="false" autocomplete="off"></textarea>
+      </div>
+
+      <div class="speed-bar">
+        <label for="speedSlider">Execution Speed: <span id="speedLabel">350ms</span></label>
+        <input type="range" id="speedSlider" min="50" max="1200" step="50" value="350" />
+      </div>
+
+      <div class="console-section">
+        <div class="panel-header sub-header">
+          <span>4. Program Output & Diagnostics</span>
+          <button id="btnClearConsole" class="mini-btn">Clear</button>
+        </div>
+        <div id="consoleOutput" class="console-box"></div>
+      </div>
+    </section>
+
+    <!-- Middle Panel: Intermediate Bytecode -->
+    <section class="panel bytecode-panel">
+      <div class="panel-header">
+        <span>2. Intermediate Bytecode</span>
+        <span id="ipBadge" class="badge info">IP: 0</span>
+      </div>
+      <div class="table-container">
+        <table class="bytecode-table">
+          <thead>
+            <tr>
+              <th>Addr</th>
+              <th>Opcode</th>
+              <th>Operand</th>
+              <th>Line</th>
+            </tr>
+          </thead>
+          <tbody id="bytecodeBody">
+            <tr>
+              <td colspan="4" class="empty-msg">Click "Compile & Run" or "Step" to generate bytecode.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Right Panel: Runtime Stack & Memory -->
+    <section class="panel runtime-panel">
+      <div class="panel-header">
+        <span>3. VM Runtime State</span>
+        <span id="cycleBadge" class="badge info">Cycles: 0</span>
+      </div>
+
+      <div class="runtime-split">
+        <div class="stack-box">
+          <h3>Operand Stack (LIFO)</h3>
+          <div id="stackContainer" class="stack-list">
+            <div class="empty-msg">Stack is empty</div>
+          </div>
+        </div>
+
+        <div class="memory-box">
+          <h3>Local Frame / Variables</h3>
+          <table class="mem-table">
+            <thead>
+              <tr>
+                <th>Identifier</th>
+                <th>Type</th>
+                <th>Value</th>
+              </tr>
+            </thead>
+            <tbody id="memoryBody">
+              <tr>
+                <td colspan="3" class="empty-msg">No variables allocated</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ISA Reference Modal -->
+  <div id="docsModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>TinyVM Instruction Set Architecture (ISA)</h2>
+        <button id="btnCloseDocs" class="mini-btn">✕</button>
+      </div>
+      <div class="modal-body">
+        <p>TinyVM is a stack-based virtual machine. Arithmetic and logical instructions pop operands from the top of the operand stack and push the computed result back.</p>
+        <table class="isa-table">
+          <thead>
+            <tr><th>Opcode</th><th>Operand</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>PUSH_CONST</code></td><td>literal</td><td>Pushes a numeric or string constant onto the operand stack.</td></tr>
+            <tr><td><code>LOAD_VAR</code></td><td>var_name</td><td>Pushes the current value of <code>var_name</code> onto the stack.</td></tr>
+            <tr><td><code>STORE_VAR</code></td><td>var_name</td><td>Pops top of stack and stores it in <code>var_name</code>.</td></tr>
+            <tr><td><code>ADD / SUB / MUL / DIV / MOD</code></td><td>—</td><td>Pops <code>b</code>, pops <code>a</code>, pushes <code>a op b</code>.</td></tr>
+            <tr><td><code>CMP_EQ / NEQ / LT / GT / LTE / GTE</code></td><td>—</td><td>Pops <code>b</code>, pops <code>a</code>, pushes boolean result.</td></tr>
+            <tr><td><code>JMP</code></td><td>addr</td><td>Unconditional jump to bytecode instruction address.</td></tr>
+            <tr><td><code>JMP_IF_FALSE</code></td><td>addr</td><td>Pops top of stack; jumps to <code>addr</code> if falsy.</td></tr>
+            <tr><td><code>PRINT</code></td><td>—</td><td>Pops top of stack and writes it to standard output.</td></tr>
+            <tr><td><code>HALT</code></td><td>—</td><td>Terminates VM execution cleanly.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
